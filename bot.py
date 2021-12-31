@@ -9,6 +9,7 @@ from discord.ext import commands
 # project imports
 import commands.data as data
 import commands.music as music
+import commands.info as info
 
 # environment variables
 dotenv.load_dotenv()
@@ -22,7 +23,7 @@ consoleHandler.setFormatter(logFormatter)
 log = logging.getLogger('bot')
 log.addHandler(consoleHandler)
 
-cogs = [data, music]
+cogs = [data, music, info]
 bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 for cog in cogs:
   cog.setup(bot)

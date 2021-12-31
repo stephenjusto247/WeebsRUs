@@ -46,7 +46,7 @@ class data(commands.Cog):
 def setup(bot):
   try:
     bot.add_cog(data(bot))
-    log.debug('Successfully set up data')
+    log.info('Successfully set up data')
   except Exception as e:
-    log.debug('Error occured when setting up data\n')
+    log.info('Error occured when setting up data\n')
     log.error(e)
