@@ -1,10 +1,16 @@
 # package imports
+import os
+import dotenv
 import discord
 from discord.ext import commands
 
 # project imports
 import commands.data as data
 import commands.music as music
+
+# environment variables
+dotenv.load_dotenv()
+token = os.getenv('DISCORD_TOKEN')
 
 cogs = [data, music]
 
@@ -18,10 +24,6 @@ async def on_message(message):
   if message.author == bot.user: # ignore bot's own messages
     return
   await bot.process_commands(message)
-  '''
-  embed = discord.Embed(description=message.content)
-  await message.channel.send(embed=embed)
-  '''
 
 try:
   bot.run(token)
