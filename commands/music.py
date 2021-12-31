@@ -1,20 +1,19 @@
-import os
-import dotenv
 import discord
 from discord.ext import commands
+from pprint import pprint
 import youtube_dl
 
-# environment variables
-dotenv.load_dotenv()
-voice_channel_id = os.getenv('VOICE_CHANNEL_ID')
-
 class music(commands.Cog):
-  def __init__(self, client):
-    self.client = client
+  def __init__(self, bot):
+    self.bot = bot
 
-def setup(client):
+  @commands.command()
+  async def test(self, ctx):
+    print(self.bot.cogs['data'].get_main_guild())
+
+def setup(bot):
   try:
-    client.add_cog(music(client))
+    bot.add_cog(music(bot))
     print('Successfully set up music commands')
   except Exception as e:
     print('Error occured when setting up music commands\n')
