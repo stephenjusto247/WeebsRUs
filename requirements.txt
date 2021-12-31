@@ -1,0 +1,12 @@
+aiohttp==3.7.4.post0
+async-timeout==3.0.1
+attrs==21.4.0
+chardet==4.0.0
+discord==1.7.3
+discord.py==1.7.3
+idna==3.3
+multidict==5.2.0
+python-dotenv==0.19.2
+typing_extensions==4.0.1
+yarl==1.7.2
+youtube-dl==2021.12.17
