@@ -75,11 +75,12 @@ class music(commands.Cog):
     if verify is False:
       return
     try:
+      if (ctx.voice_client.is_playing):
+        ctx.voice_client.stop()
       await ctx.voice_client.disconnect()
     except Exception as e:
       log.error(e)
     
-  
   @commands.command()
   async def pause(self, ctx):
     verify = await self._verify(ctx)
