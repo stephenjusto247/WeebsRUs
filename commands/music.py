@@ -50,7 +50,7 @@ class music(commands.Cog):
     try:
       if ctx.voice_client is None:  # if bot is not in a voice channel then connect to author's voice channel
         await voice_channel.connect()
-      elif ctx.voice_client != voice_channel: # if bot is already in a voice channel, then move to the author's voice channel
+      elif ctx.voice_client.channel != voice_channel: # if bot is already in a voice channel, then move to the author's voice channel
         await ctx.voice_client.move_to(voice_channel)
       return True
     except Exception as e:

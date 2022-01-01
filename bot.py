@@ -7,7 +7,7 @@ import logging
 from discord.ext import commands
 
 # project imports
-import commands.data as data
+import commands.friday as friday
 import commands.music as music
 import commands.info as info
 
@@ -23,7 +23,7 @@ consoleHandler.setFormatter(logFormatter)
 log = logging.getLogger('bot')
 log.addHandler(consoleHandler)
 
-cogs = [data, music, info]
+cogs = [friday, music, info]
 bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 for cog in cogs:
   cog.setup(bot)
