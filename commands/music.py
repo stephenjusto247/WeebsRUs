@@ -1,24 +1,32 @@
 import discord
 import requests
 import logging
-from youtube_dl import YoutubeDL
+import asyncio
 from discord.ext import commands
+from youtube_dl import YoutubeDL
 
 # set up logging
 log = logging.getLogger('bot')
 
+ytdlopts = {
+  'format': 'bestaudio/best', 
+  'noplaylist': True, 
+  'nocheckcertificate': True, 
+  'source_address': '0.0.0.0'
+}
+
 def search(query):
-  with YoutubeDL({'format': 'bestaudio', 'noplaylist':'True'}) as ydl:
+  with YoutubeDL(ytdlopts) as ydl:
     try: requests.get(query)
     except: info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
     else: info = ydl.extract_info(query, download=False)
   return (info, info['formats'][0]['url'])
 
-class music(commands.Cog):
+class Music(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
     self.FFMPEG_OPTIONS = {
-      'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 
+      'before_options': '-nostdin', 
       'options': '-vn'
     }
 
@@ -59,13 +67,28 @@ class music(commands.Cog):
 
   @commands.command()
   async def play(self, ctx, query):
+    '''
+    stop_event = asyncio.Event()
+    loop = asyncio.get_event_loop()
+    def after(e):
+      if e:
+        log.error(e)
+      loop.call_soon_threadsafe(stop_event.set)
+    '''
+    
     info, source = search(query)
+
     try:
-      await self._join(ctx)
-      if ctx.voice_client.is_playing():
+      if ctx.voice_client and ctx.voice_client.is_playing():
+        print('STOPPED')
         ctx.voice_client.stop()
+      await self._join(ctx)
+      print('HERE')
       ctx.voice_client.play(await discord.FFmpegOpusAudio.from_probe(source, **self.FFMPEG_OPTIONS))
       await ctx.send(embed=self._create_embed('<@{}> Now playing \"{}\"'.format(ctx.author.id, info['title'])))
+      # await stop_event.wait()
+      # ctx.voice_client.stop()
+      # await ctx.voice_client.disconnect()
     except Exception as e:
       log.error(e)
   
@@ -115,7 +138,7 @@ class music(commands.Cog):
 
 def setup(bot):
   try:
-    bot.add_cog(music(bot))
+    bot.add_cog(Music(bot))
     log.info('Successfully set up music commands')
   except Exception as e:
     log.info('Error occured when setting up music commands\n')

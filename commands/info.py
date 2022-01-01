@@ -6,7 +6,7 @@ from prettytable import PrettyTable
 # set up logging
 log = logging.getLogger('bot')
 
-class info(commands.Cog):
+class Info(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
 
@@ -35,8 +35,8 @@ class info(commands.Cog):
 def setup(bot):
   try:
     bot.remove_command('help')
-    bot.add_cog(info(bot))
-    log.info('Successfully set up info')
+    bot.add_cog(Info(bot))
+    log.info('Successfully set up help command')
   except Exception as e:
     log.info('Error occured when setting up info\n')
     log.error(e)

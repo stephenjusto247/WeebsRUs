@@ -3,6 +3,7 @@ import dotenv
 import logging
 import pytz
 import requests
+import asyncio
 import discord
 from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -20,7 +21,7 @@ giphy_key = os.getenv('GIPHY_KEY')
 # set up logging
 log = logging.getLogger('bot')
 
-class friday(commands.Cog):
+class Friday(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
     self.FFMPEG_OPTIONS = {
@@ -67,8 +68,8 @@ class friday(commands.Cog):
     return False
 
   async def _play_friday(self):
-    info, source = search('https://www.youtube.com/watch?v=kfVsfOSbJY0')
     try:
+      info, source = search('https://www.youtube.com/watch?v=kfVsfOSbJY0')
       guild = self.bot.get_guild(int(server_id))
       text_channel = self.bot.get_channel(int(text_channel_id))
       if await self._join() is False: # if bot failed to join then exit
@@ -81,7 +82,7 @@ class friday(commands.Cog):
       if voice_client.is_playing():
         voice_client.stop()
       gif_url = self._getGif()
-      voice_client.play(await discord.FFmpegOpusAudio.from_probe(source, **self.FFMPEG_OPTIONS))
+      voice_client.play(await discord.FFmpegOpusAudio.from_probe(source, **self.FFMPEG_OPTIONS), after=after)
       await text_channel.send('TGIF!! Here is \"{}\" to celebrate this amazing Friday! {}'.format(info['title'], gif_url))
       log.info('Successfully started playing Friday ;)')
     except Exception as e:
@@ -93,7 +94,7 @@ class friday(commands.Cog):
     for guild in bot.guilds:
       log.info('{} has joined {}'.format(bot.user.name, guild.name))
     try:
-      # schedule task
+      # schedule task, every friday at 8:00pm PST
       self.scheduler = AsyncIOScheduler(timezone=pytz.timezone('US/Pacific'))
       self.scheduler.start()
       self.scheduler.add_job(self._play_friday, trigger='cron', day='*', hour='20', minute='0', day_of_week='fri')
@@ -102,7 +103,7 @@ class friday(commands.Cog):
 
 def setup(bot):
   try:
-    bot.add_cog(friday(bot))
+    bot.add_cog(Friday(bot))
     log.info('Successfully set up friday')
   except Exception as e:
     log.info('Error occured when setting up friday\n')

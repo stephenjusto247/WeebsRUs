@@ -7,9 +7,9 @@ import logging
 from discord.ext import commands
 
 # project imports
-import commands.friday as friday
-import commands.music as music
-import commands.info as info
+import commands.friday as Friday
+import commands.music as Music
+import commands.info as Info
 
 # environment variables
 dotenv.load_dotenv()
@@ -23,7 +23,7 @@ consoleHandler.setFormatter(logFormatter)
 log = logging.getLogger('bot')
 log.addHandler(consoleHandler)
 
-cogs = [friday, music, info]
+cogs = [Friday, Music, Info]
 bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 for cog in cogs:
   cog.setup(bot)
