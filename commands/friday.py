@@ -22,10 +22,6 @@ log = logging.getLogger('bot')
 class Friday(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
-    self.FFMPEG_OPTIONS = {
-      'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 
-      'options': '-vn'
-    }
   
   @classmethod
   def __getGif(cls):
