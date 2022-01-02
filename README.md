@@ -1,2 +1,2 @@
 # WeebsRUs
-A spicy bot for my private Discord Server
+A spicy bot for me and my friends' Discord Server
