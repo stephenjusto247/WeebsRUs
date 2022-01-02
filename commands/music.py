@@ -2,7 +2,7 @@ import discord
 from discord import player
 import requests
 import logging
-import asyncio
+import itertools
 from discord.ext import commands
 from youtube_dl import YoutubeDL
 
@@ -116,105 +116,122 @@ class Music(commands.Cog):
     await ctx.trigger_typing()  # typing signal on Discord
 
     vc = ctx.voice_client
-
-    if not vc:
-      await ctx.invoke(self.connect)
     
     music_player = self.get_music_player(ctx)
 
     source = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
 
+    if not vc:
+      if await ctx.invoke(self.connect) is False:
+        return
+
     await music_player.queue.put(source)
-    print('now what')
 
-  """
-  async def _join(self, ctx):
-    if ctx.author.voice is None:
-      await ctx.send(embed=self.__create_embed('<@{}> Please connect to a voice channel first'.format(ctx.author.id)))
-      return False
-
-    voice_channel = ctx.author.voice.channel
-    try:
-      if ctx.voice_client is None:  # if bot is not in a voice channel then connect to author's voice channel
-        await voice_channel.connect()
-      elif ctx.voice_client.channel != voice_channel: # if bot is already in a voice channel, then move to the author's voice channel
-        await ctx.voice_client.move_to(voice_channel)
-      return True
-    except Exception as e:
-      log.error(e)
-      return False
-
-  @commands.command()
-  async def play(self, ctx, query):
-    '''
-    stop_event = asyncio.Event()
-    loop = asyncio.get_event_loop()
-    def after(e):
-      if e:
-        log.error(e)
-      loop.call_soon_threadsafe(stop_event.set)
-    '''
-    
-    info, source = search(query)
-
-    try:
-      if ctx.voice_client and ctx.voice_client.is_playing():
-        print('STOPPED')
-        ctx.voice_client.stop()
-      await self._join(ctx)
-      print('HERE')
-      ctx.voice_client.play(await discord.FFmpegOpusAudio.from_probe(source, **self.FFMPEG_OPTIONS))
-      await ctx.send(embed=self.__create_embed('<@{}> Now playing \"{}\"'.format(ctx.author.id, info['title'])))
-      # await stop_event.wait()
-      # ctx.voice_client.stop()
-      # await ctx.voice_client.disconnect()
-    except Exception as e:
-      log.error(e)
-  
   @commands.command()
   async def stop(self, ctx):
-    verify = await self.__verify(ctx)
-    if verify is False:
+    if await self.__verify(ctx) is False:
       return
-    try:
-      if (ctx.voice_client.is_playing):
-        ctx.voice_client.stop()
-      await ctx.voice_client.disconnect()
-    except Exception as e:
-      log.error(e)
-    
-  @commands.command()
-  async def pause(self, ctx):
-    verify = await self.__verify(ctx)
-    if verify is False:
-      return
-    try:
-      ctx.voice_client.pause()
-      await ctx.send(embed=self.__create_embed('Paused'))
-    except Exception as e:
-      log.error(e)
+
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+
+    await vc.disconnect()
+    await ctx.send(embed=self.__create_embed('<@{}> stopped the music'.format(ctx.author.id)))
   
   @commands.command()
-  async def resume(self, ctx):
-    verify = await self.__verify(ctx)
-    if verify is False:
+  async def pause(self, ctx):
+    if await self.__verify(ctx) is False:
       return
+
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+
+    vc.pause()
+    await ctx.send(embed=self.__create_embed('<@{}> paused the music'.format(ctx.author.id)))
+
+  @commands.command()
+  async def resume(self, ctx):
+    if await self.__verify(ctx) is False:
+      return
+
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+
+    vc.resume()
+    await ctx.send(embed=self.__create_embed('<@{}> resumed the music'.format(ctx.author.id)))
+
+  @commands.command(name='current_song', aliases=['currentsong'])
+  async def current_song(self, ctx):
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+    
+    music_player = self.get_music_player(ctx)
+    if music_player.current is None:
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+    
     try:
-      ctx.voice_client.resume()
-      await ctx.send(embed=self.__create_embed('Resumed'))
+      await music_player.message.delete()
     except Exception as e:
       log.error(e)
+      pass
+    
+    music_player.message = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(vc.source.title, vc.source.requester)
+    await ctx.send(embed=self.__create_embed(music_player.message))
+
+  @commands.command(name='queue')
+  async def queue_info(self, ctx):
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+
+    music_player = self.get_music_player(ctx)
+    if music_player.queue.empty():
+      return await ctx.send(embed=self.__create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
+    
+    upcoming_songs = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))
+
+    format = '\n'.join('**{}**'.format(song['title']) for song in upcoming_songs)
+    embed = discord.Embed(title='Upcoming - Next {}'.format(len(upcoming_songs)), description=format)
+
+    await ctx.send(embed=embed)
+
+  @commands.command()
+  async def skip(self, ctx):
+    if await self.__verify(ctx) is False:
+      return
+
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=self.__create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+    
+    # check if music is paused before checking if music is playing
+    if vc.is_paused():
+      pass
+    elif not vc.is_playing():
+      return
+    
+    vc.stop()
+    await ctx.send(embed=self.__create_embed('<@{}> skipped the song'.format(ctx.author.id)))
   
   @commands.Cog.listener()
   async def on_command_error(self, ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
       error_str_arr = str(error).split(' ')
-      if (error_str_arr[0] == 'query'):
+      if (error_str_arr[0] == 'search'):
         try:
-          await ctx.send(embed=self.__create_embed('<@{}> Please specify a URL'.format(ctx.author.id)))
+          await ctx.send(embed=self.__create_embed('<@{}> Please specify a query'.format(ctx.author.id)))
         except Exception as e:
           log.error(e)
-  """
 
 def setup(bot):
   try:

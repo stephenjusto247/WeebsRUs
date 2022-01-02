@@ -52,7 +52,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
     if ctx.voice_client and ctx.voice_client.is_playing():
       await ctx.send('Added \"{}\" to the Queue.'.format(data['title']))
 
-    return cls(source, data=data, requester=ctx.author)
+    return cls(source, data=data, requester=ctx.author.id)
   
   @classmethod
   async def regather_stream(cls, data, *, loop):
@@ -113,7 +113,7 @@ class MusicPlayer:
       self.current = source
 
       self.guild.voice_client.play(source, after=self.__after)
-      self.message = await self.channel.send('**Now Playing:**\n\"{}\" requested by {}'.format(source.title, source.requester))
+      self.message = await self.channel.send('**Now Playing:**\n\"{}\" requested by <@{}>'.format(source.title, source.requester))
 
       await self.next.wait()
 

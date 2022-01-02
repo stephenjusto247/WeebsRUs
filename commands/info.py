@@ -24,6 +24,9 @@ class Info(commands.Cog):
         ['$stop', 'Stops music and disconnects bot'],
         ['$pause', 'Pauses music'],
         ['$resume', 'Resumes music'],
+        ['$currentsong', 'Display current song'],
+        ['$skip', 'Skips the current song'],
+        ['$queue', 'Get queue info']
       ]
       for row in rows:
         table.add_row(row)
