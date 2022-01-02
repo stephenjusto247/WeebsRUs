@@ -13,7 +13,7 @@ import commands.info as Info
 
 # environment variables
 dotenv.load_dotenv()
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('TEST_TOKEN')
 
 # set up logging
 logging.basicConfig(filename='bot.log', encoding='utf-8', level=logging.INFO)
@@ -24,7 +24,7 @@ log = logging.getLogger('bot')
 log.addHandler(consoleHandler)
 
 cogs = [Music, Friday, Info]
-bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
+bot = commands.Bot(command_prefix='$', intents=discord.Intents.all(), activity=discord.Game('with Corey\'s heart'))
 for cog in cogs:
   cog.setup(bot)
 
