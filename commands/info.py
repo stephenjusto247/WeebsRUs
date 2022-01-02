@@ -1,7 +1,9 @@
 import logging
-import discord
 from discord.ext import commands
 from prettytable import PrettyTable
+
+# project imports
+from lib.utils import create_embed
 
 # set up logging
 log = logging.getLogger('bot')
@@ -9,10 +11,6 @@ log = logging.getLogger('bot')
 class Info(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
-
-  def _create_embed(self, message):
-    embed = discord.Embed(description=message)
-    return embed
 
   @commands.command()
   async def help(self, ctx):
@@ -31,7 +29,7 @@ class Info(commands.Cog):
       for row in rows:
         table.add_row(row)
       response = table.get_string()
-      await ctx.send(embed=self._create_embed('**command list**\n```\n{}\n```'.format(response)))
+      await ctx.send(embed=create_embed('**command list**\n```\n{}\n```'.format(response)))
     except Exception as e:
       log.error(e)
 

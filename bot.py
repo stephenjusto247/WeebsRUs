@@ -23,7 +23,7 @@ consoleHandler.setFormatter(logFormatter)
 log = logging.getLogger('bot')
 log.addHandler(consoleHandler)
 
-cogs = [Friday, Music, Info]
+cogs = [Music, Friday, Info]
 bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 for cog in cogs:
   cog.setup(bot)
@@ -32,7 +32,9 @@ for cog in cogs:
 async def on_message(message):
   if message.author == bot.user: # ignore bot's own messages
     return
-  await bot.process_commands(message) # process bot commands
+
+  if message.guild:
+    await bot.process_commands(message) # process bot commands if message is not a dm
 
 try:
   bot.run(token)

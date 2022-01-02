@@ -3,13 +3,11 @@ import dotenv
 import logging
 import pytz
 import requests
-import asyncio
-import discord
 from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # project imports
-from commands.music import search
+from commands.music_player import YTDLSource
 
 # environment variables
 dotenv.load_dotenv()
@@ -29,7 +27,8 @@ class Friday(commands.Cog):
       'options': '-vn'
     }
   
-  def _getGif(self):
+  @classmethod
+  def __getGif(cls):
     try:
       r = requests.get('http://api.giphy.com/v1/gifs/search', params = {
         'q': 'Friday',
@@ -39,52 +38,70 @@ class Friday(commands.Cog):
         'rating': 'pg-13',
         'lang': 'en'
       })
-      url = r.json()['data'][0]['url']
-      return url
+      return r.json()['data'][0]['url'] # return url
     except Exception as e:
       log.error(e)
-      return None
+      return ''
 
-  async def _join(self):
+  async def __connect(self):
     try:
       guild = self.bot.get_guild(int(server_id))
-      voice_channel = self.bot.get_channel(int(voice_channel_id))
-      if voice_channel is None or guild is None:
-        log.warning('voice/guild was not found')
-        return False
-
-      voice_client = None
-      for voice in self.bot.voice_clients:
-        if voice.guild == guild:
-          voice_client = voice
-      
-      if voice_client is None: # if bot is not in a voice channel then connect to author's voice channel
-        await voice_channel.connect()
-      elif voice_client.channel != voice_channel:
-        await voice_client.move_to(voice_channel)
+      channel = self.bot.get_channel(int(voice_channel_id))
+    
+      vc = None
+      for voice_client in self.bot.voice_clients:
+        if voice_client.guild == guild:
+          vc = voice_client
+    
+      if vc is None:  # if bot is not in a voice channel then simply connect to the target channel
+        await channel.connect()
+      elif vc.channel != channel: # bot is already in a channel so move it to the target channel
+        await vc.move_to(channel)
+      # if none are true then the bot is already in the target channel
       return True
+
     except Exception as e:
       log.error(e)
-    return False
+      return False
 
-  async def _play_friday(self):
+  async def __play_friday(self):
     try:
-      info, source = search('https://www.youtube.com/watch?v=kfVsfOSbJY0')
       guild = self.bot.get_guild(int(server_id))
       text_channel = self.bot.get_channel(int(text_channel_id))
-      if await self._join() is False: # if bot failed to join then exit
+      music = self.bot.get_cog('Music')
+      music_player = None
+      vc = None
+
+      for voice_client in self.bot.voice_clients:
+        if voice_client.guild == guild:
+          vc = voice_client
+
+      if vc is None:
+        return
+
+      if music.music_player_exists(guild=guild): # clear queue if music player already exists
+        music_player = music.get_music_player(guild=guild)
+        music_player.clear_queue()
+        
+      # create new music player
+      music_player = music.get_music_player(guild=guild)
+
+      class Object(): # create ctx to pass through YTDLSource.create()
+        pass
+      ctx = Object()
+      ctx.voice_client = vc
+      ctx.send = text_channel.send
+
+      if await self.__connect() is False: # reconnect but if bot failed to join then exit
         log.error('Failed to join the target voice channel...')
         return
-      voice_client = None
-      for voice in self.bot.voice_clients:
-        if voice.guild == guild:
-          voice_client = voice
-      if voice_client.is_playing():
-        voice_client.stop()
-      gif_url = self._getGif()
-      voice_client.play(await discord.FFmpegOpusAudio.from_probe(source, **self.FFMPEG_OPTIONS), after=after)
-      await text_channel.send('TGIF!! Here is \"{}\" to celebrate this amazing Friday! {}'.format(info['title'], gif_url))
+
+      gif_url = self.__getGif()
+      ytdlSource = await YTDLSource.create(ctx, 'https://www.youtube.com/watch?v=kfVsfOSbJY0', loop=self.bot.loop)
+      await text_channel.send('TGIF!! Here is \"{}\" to celebrate this amazing Friday!\n{}'.format(ytdlSource.title, gif_url))
+      await music_player.queue.put(ytdlSource)
       log.info('Successfully started playing Friday ;)')
+
     except Exception as e:
       log.error(e)
 
@@ -97,7 +114,7 @@ class Friday(commands.Cog):
       # schedule task, every friday at 8:00pm PST
       self.scheduler = AsyncIOScheduler(timezone=pytz.timezone('US/Pacific'))
       self.scheduler.start()
-      self.scheduler.add_job(self._play_friday, trigger='cron', day='*', hour='20', minute='0', day_of_week='fri')
+      self.scheduler.add_job(self.__play_friday, trigger='cron', day='*', hour='20', minute='0', day_of_week='fri')
     except Exception as e:
       log.error(e)
 
