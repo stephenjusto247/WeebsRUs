@@ -13,7 +13,7 @@ import commands.info as Info
 
 # environment variables
 dotenv.load_dotenv()
-token = os.getenv('TEST_TOKEN')
+token = os.getenv('DISCORD_TOKEN')
 
 # set up logging
 logging.basicConfig(filename='bot.log', encoding='utf-8', level=logging.INFO)
