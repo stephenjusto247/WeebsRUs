@@ -31,8 +31,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
     try:
       id = ctx.author.id
     except Exception as e:
-      print(type(e).__name__)
-      if isinstance(e, AttributeError):
+      if isinstance(e, AttributeError) is False:
         log.error(e)
 
     data, url = await loop.run_in_executor(None, to_run)
