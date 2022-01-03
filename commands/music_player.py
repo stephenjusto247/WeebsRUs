@@ -86,10 +86,13 @@ class MusicPlayer:
     try:
       if self.current:
         self.next.clear()
-        self.current.cleanup()
+        self.current.source.cleanup()
         self.current = None
     except Exception as e:
       log.error(e)
+
+  def get_current(self):
+    return self.current
 
   async def player_loop(self):
     while not self.bot.is_closed():

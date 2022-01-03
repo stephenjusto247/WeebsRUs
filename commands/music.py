@@ -49,20 +49,12 @@ class Music(commands.Cog):
     
     return music_player
 
-  def music_player_exists(self, ctx=None, guild=None):
-    if ctx:
-      try:
-        self.music_players[ctx.guild.id]
-        return True
-      except KeyError:
-        pass
-
-    elif guild:
-      try:
-        self.music_players[guild.id]
-        return True
-      except KeyError:
-        pass
+  def music_player_exists(self, guild=None):
+    try:
+      self.music_players[guild.id]
+      return True
+    except KeyError:
+      pass
 
     return False
 
@@ -135,9 +127,13 @@ class Music(commands.Cog):
     if not vc or not vc.is_connected():
       return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
 
+    if self.music_player_exists(ctx.guild):
+      music_player = self.get_music_player(ctx)
+      music_player.clear_queue()
+      await ctx.send(embed=create_embed('<@{}> stopped the music'.format(ctx.author.id)))
+    
     await vc.disconnect()
-    await ctx.send(embed=create_embed('<@{}> stopped the music'.format(ctx.author.id)))
-  
+
   @commands.command()
   async def pause(self, ctx):
     if await self.__verify(ctx) is False:
@@ -148,8 +144,11 @@ class Music(commands.Cog):
     if not vc or not vc.is_connected():
       return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
 
-    vc.pause()
-    await ctx.send(embed=create_embed('<@{}> paused the music'.format(ctx.author.id)))
+    if vc.is_playing():
+      vc.pause()
+      return await ctx.send(embed=create_embed('<@{}> paused the music'.format(ctx.author.id)))
+
+    await ctx.send(embed=create_embed('<@{}> music is already paused'.format(ctx.author.id)))
 
   @commands.command()
   async def resume(self, ctx):
@@ -161,8 +160,11 @@ class Music(commands.Cog):
     if not vc or not vc.is_connected():
       return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
 
-    vc.resume()
-    await ctx.send(embed=create_embed('<@{}> resumed the music'.format(ctx.author.id)))
+    if vc.is_playing() is False:
+      vc.resume()
+      return await ctx.send(embed=create_embed('<@{}> resumed the music'.format(ctx.author.id)))
+
+    await ctx.send(embed=create_embed('<@{}> music is already playing'.format(ctx.author.id)))
 
   @commands.command(name='current_song', aliases=['currentsong'])
   async def current_song(self, ctx):
@@ -181,13 +183,14 @@ class Music(commands.Cog):
       log.error(e)
       pass
     
+    ytdlSource = music_player.get_current()
     response = None
     # title attribute seems to be weirdly inconsistent
     try:
-      response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(vc.source.title, vc.source.requester)
+      response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource.title, ytdlSource.requester)
     except:
       try:
-        response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(vc.source['title'], vc.source.requester)
+        response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource['title'], ytdlSource.requester)
       except Exception as e:
         log.error(e)
         return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving current song information'))
@@ -235,7 +238,7 @@ class Music(commands.Cog):
     if vc.is_paused():
       pass
     elif not vc.is_playing():
-      return
+      return await ctx.send(embed=create_embed('<@{}> there are no more songs to play'.format(ctx.author.id)))
     
     vc.stop()
     await ctx.send(embed=create_embed('<@{}> skipped the song'.format(ctx.author.id)))
