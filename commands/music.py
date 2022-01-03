@@ -111,7 +111,7 @@ class Music(commands.Cog):
     return True
 
   @commands.command()
-  async def play(self, ctx, search: str):
+  async def play(self, ctx, *, search: str):
     vc = ctx.voice_client
 
     if not vc:
