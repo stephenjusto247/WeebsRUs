@@ -6,7 +6,7 @@ YTDL_OPTS = {
   'format': 'bestaudio/best', 
   'noplaylist': True, 
   'nocheckcertificate': True,
-  'quiet': True, 
+  'quiet': False, 
   'source_address': '0.0.0.0'
 }
 

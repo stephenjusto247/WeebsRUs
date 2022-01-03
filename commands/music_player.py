@@ -13,10 +13,10 @@ from lib.utils import FFMPEG_OPTS
 # set up logging
 log = logging.getLogger('bot')
 
-class YTDLSource(discord.PCMVolumeTransformer):
+class YTDLSource():
 
   def __init__(self, source, data, requester):
-    super().__init__(source)
+    self.source = source
     self.requester = requester
 
     self.title = data.get('title')
@@ -42,7 +42,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
       await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(data['title'])))
       return {'webpage_url': data['webpage_url'], 'requester': id, 'title': data['title']}
     
-    source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTS)
+    source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback')
     return cls(source, data=data, requester=id)
   
   @classmethod
@@ -53,7 +53,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
     to_run = partial(search, query=data['webpage_url'])
     data, url = await loop.run_in_executor(None, to_run)
 
-    return cls(discord.FFmpegPCMAudio(url, **FFMPEG_OPTS), data=data, requester=requester)
+    return cls(await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback'), data=data, requester=requester)
 
 class MusicPlayer:
 
@@ -97,33 +97,36 @@ class MusicPlayer:
 
       try:  # Wait for the next song. If we timeout cancel the player and disconnect
         async with timeout(60): # 60 seconds before timing out
-          source = await self.queue.get()
+          ytdlSource = await self.queue.get()
       except asyncio.TimeoutError:
         log.info('Queue seems to be empty. Cleaning up music player')
         return self.destroy(self.guild)
 
-      if not isinstance(source, YTDLSource):
+      if not isinstance(ytdlSource, YTDLSource):
         ''' in case the queue is super long, there's a chance that queued up songs
             have already expired so we'll regather the stream to generate a fresh url'''
         try:
-          source = await YTDLSource.regather_stream(source, loop=self.bot.loop)
+          ytdlSource = await YTDLSource.regather_stream(ytdlSource, loop=self.bot.loop)
         except Exception as e:
           log.warning('There was an error processing a song')
           log.error(e)
           await self.channel.send(embed=create_embed('An error occured!'))
           continue
       
-      self.current = source
+      self.current = ytdlSource
 
-      self.guild.voice_client.play(source, after=self.__after)
-      if source.requester != '':
-        self.message = await self.channel.send(embed=create_embed('**Now Playing:**\n\"{}\"\nrequested by <@{}>'.format(source.title, source.requester)))
+      try:
+        self.guild.voice_client.play(ytdlSource.source, after=self.__after)
+        if ytdlSource.requester != '':
+          self.message = await self.channel.send(embed=create_embed('**Now Playing:**\n\"{}\"\nrequested by <@{}>'.format(ytdlSource.title, ytdlSource.requester)))
 
-      await self.next.wait()
+        await self.next.wait()
 
-      # cleanup discord.FFmpegPCMAudio
-      source.cleanup()
-      self.current = None
+        # cleanup audio source
+        ytdlSource.source.cleanup()
+        self.current = None
+      except Exception as e:
+        log.error(e)
   
   def destroy(self, guild):
     # Disconnect and cleanup music player
