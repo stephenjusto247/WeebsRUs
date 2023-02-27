@@ -1,23 +1,13 @@
 import requests
 import discord
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 YTDL_OPTS = {
-  'format': 'bestaudio/best',
-  'outtmpl': 'downloads/%(extractor)s-%(id)s-%(title)s.%(ext)s',
-  'restrictfilenames': True,
-  'noplaylist': True,
-  'nocheckcertificate': True,
-  'ignoreerrors': False,
-  'logtostderr': False,
-  'quiet': False,
-  'no_warnings': True,
-  'default_search': 'auto',
-  'source_address': '0.0.0.0'
+  'noplaylist': True
 }
 
 FFMPEG_OPTS = {
-  'before_options': '-nostdin', 
+  "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", 
   'options': '-vn'
 }
 
@@ -25,9 +15,18 @@ def create_embed(message: str): # create a discord.Embed object
   embed = discord.Embed(description=message)
   return embed
 
-def search(query):  # search query and return an info obj & a streamable url
+def extract_audio_url(info):
+  if info is not None:
+    for requested_format in info['requested_formats']:
+      # when "fps" is None, the format is audio only
+      if requested_format['fps'] is None:
+        return requested_format['url']
+  return ''
+
+# search query and return an info obj & a streamable url
+def search(query):  
   with YoutubeDL(YTDL_OPTS) as ydl:
     try: requests.get(query)
-    except: info = ydl.extract_info("ytsearch:{}".format(query), download=True)['entries'][0]
-    else: info = ydl.extract_info(query, download=True)
-  return (info, info['formats'][0]['url'])
+    except: info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=False))['entries'][0]
+    else: info = ydl.sanitize_info(ydl.extract_info(query, download=False))
+  return (info, extract_audio_url(info))
