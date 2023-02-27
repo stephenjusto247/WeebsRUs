@@ -95,6 +95,8 @@ class MusicPlayer:
     return self.current
 
   async def player_loop(self):
+    if self.bot.is_closed():
+      print("bot is closed!")
     while not self.bot.is_closed():
       self.next.clear()
 

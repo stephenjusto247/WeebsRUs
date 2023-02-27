@@ -27,7 +27,7 @@ class Music(commands.Cog):
       pass
 
     try:
-      del self.players[guild.id]
+      del self.music_players[guild.id]
     except KeyError:
       pass
 
