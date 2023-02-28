@@ -15,12 +15,12 @@ log = logging.getLogger('bot')
 
 class YTDLSource():
 
-  def __init__(self, source, data, requester):
+  def __init__(self, source, title, webpage_url, requester):
     self.source = source
     self.requester = requester
 
-    self.title = data.get('title')
-    self.web_url = data.get('webpage_url')
+    self.title = title
+    self.web_url = webpage_url
 
   @classmethod
   async def create(cls, ctx, query: str, loop):
@@ -34,16 +34,14 @@ class YTDLSource():
       if isinstance(e, AttributeError) is False:
         log.error(e)
 
-    data, url = await loop.run_in_executor(None, to_run)
-    if 'entries' in data:
-      data = data['entries'][0]
+    title, webpage_url, url = await loop.run_in_executor(None, to_run)
 
     if ctx.voice_client and ctx.voice_client.is_playing():
-      await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(data['title'])))
-      return {'webpage_url': data['webpage_url'], 'requester': id, 'title': data['title']}
+      await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
+      return {'webpage_url': webpage_url, 'requester': id, 'title': title}
     
     source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback')
-    return cls(source, data=data, requester=id)
+    return cls(source, title=title, webpage_url=webpage_url, requester=id)
   
   @classmethod
   async def regather_stream(cls, data, loop):
