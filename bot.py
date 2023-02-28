@@ -23,7 +23,7 @@ log = logging.getLogger('bot')
 log.addHandler(consoleHandler)
 
 cogs = [Music, Info]
-bot = commands.Bot(command_prefix='$', intents=discord.Intents.all(), activity=discord.Game('with Corey\'s heart'))
+bot = commands.Bot(command_prefix=Info.COMMAND_PREFIX, intents=discord.Intents.all(), activity=discord.Game('with Corey\'s heart'))
 for cog in cogs:
   cog.setup(bot)
 
