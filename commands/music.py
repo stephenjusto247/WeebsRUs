@@ -110,7 +110,7 @@ class Music(commands.Cog):
       if await ctx.invoke(self.connect) is False:
         return
 
-    await ctx.trigger_typing()  # typing signal on Discord
+    await ctx.typing()  # typing signal on Discord
     
     music_player = self.get_music_player(ctx=ctx)
     ytdlSource = await YTDLSource.create(ctx, search, loop=self.bot.loop)
