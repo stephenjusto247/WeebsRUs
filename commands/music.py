@@ -185,15 +185,13 @@ class Music(commands.Cog):
     
     ytdlSource = music_player.get_current()
     response = None
-    # title attribute seems to be weirdly inconsistent
+
     try:
       response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource.title, ytdlSource.requester)
-    except:
-      try:
-        response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource['title'], ytdlSource.requester)
-      except Exception as e:
-        log.error(e)
-        return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving current song information'))
+    except Exception as e:
+      log.error(e)
+      return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving current song information'))
+
 
     music_player.message = await ctx.send(embed=create_embed(response))
 
@@ -208,18 +206,14 @@ class Music(commands.Cog):
     if music_player.queue.empty():
       return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
 
-    upcoming = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))
-    
+    upcoming = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))   
     format = None
-    # it seems like the "title" attribute is inconsistent :(
+
     try:
       format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource.title) for index, ytdlSource in enumerate(upcoming))
-    except:
-      try:
-        format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource['title']) for index, ytdlSource in enumerate(upcoming))
-      except Exception as e:
-        log.error(e)
-        return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
+    except Exception as e:
+      log.error(e)
+      return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
 
     embed = discord.Embed(title='Upcoming - Next {}'.format(len(upcoming)), description=format)
     await ctx.send(embed=embed)

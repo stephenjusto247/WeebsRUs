@@ -49,9 +49,10 @@ class YTDLSource():
     requester = data['requester']
 
     to_run = partial(search, query=data['webpage_url'])
-    data, url = await loop.run_in_executor(None, to_run)
+    title, webpage_url, url = await loop.run_in_executor(None, to_run)
 
-    return cls(await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback'), data=data, requester=requester)
+    source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback')
+    return cls(source, title=title, webpage_url=webpage_url, requester=requester)
 
 class MusicPlayer:
 
