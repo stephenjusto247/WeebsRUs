@@ -210,7 +210,7 @@ class Music(commands.Cog):
     format = None
 
     try:
-      format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource.title) for index, ytdlSource in enumerate(upcoming))
+      format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource['title']) for index, ytdlSource in enumerate(upcoming))
     except Exception as e:
       log.error(e)
       return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
