@@ -110,7 +110,7 @@ class Music(commands.Cog):
       if await ctx.invoke(self.connect) is False:
         return
 
-    await ctx.trigger_typing()  # typing signal on Discord
+    await ctx.typing()  # typing signal on Discord
     
     music_player = self.get_music_player(ctx=ctx)
     ytdlSource = await YTDLSource.create(ctx, search, loop=self.bot.loop)
@@ -210,7 +210,7 @@ class Music(commands.Cog):
     format = None
 
     try:
-      format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource.title) for index, ytdlSource in enumerate(upcoming))
+      format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource['title']) for index, ytdlSource in enumerate(upcoming))
     except Exception as e:
       log.error(e)
       return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
@@ -247,9 +247,9 @@ class Music(commands.Cog):
         except Exception as e:
           log.error(e)
 
-def setup(bot):
+async def setup(bot):
   try:
-    bot.add_cog(Music(bot))
+    await bot.add_cog(Music(bot))
     log.info('Successfully set up music commands')
   except Exception as e:
     log.warning('Error occured when setting up music commands')

@@ -41,10 +41,10 @@ class Info(commands.Cog):
     except Exception as e:
       log.error(e)
 
-def setup(bot):
+async def setup(bot):
   try:
     bot.remove_command('help')
-    bot.add_cog(Info(bot))
+    await bot.add_cog(Info(bot))
     log.info('Successfully set up help command')
   except Exception as e:
     log.info('Error occured when setting up info\n')

@@ -1,9 +1,10 @@
 # package imports
+import asyncio
+import discord
+import dotenv
+import logging
 import os
 import sys
-import dotenv
-import discord
-import logging
 from discord.ext import commands
 
 # project imports
@@ -25,7 +26,7 @@ log.addHandler(consoleHandler)
 cogs = [Music, Info]
 bot = commands.Bot(command_prefix=Info.COMMAND_PREFIX, intents=discord.Intents.all(), activity=discord.Game('with Corey\'s heart'))
 for cog in cogs:
-  cog.setup(bot)
+  asyncio.run(cog.setup(bot))
 
 @bot.event
 async def on_message(message):
