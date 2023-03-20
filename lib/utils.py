@@ -21,6 +21,7 @@ def extract_audio_url(info):
     for requested_format in info['requested_formats']:
       # when "fps" is None, the format is audio only
       if requested_format['fps'] is None:
+        print(requested_format['url'])
         return requested_format['url']
   return ''
 
