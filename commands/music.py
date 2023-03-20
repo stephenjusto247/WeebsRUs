@@ -247,9 +247,9 @@ class Music(commands.Cog):
         except Exception as e:
           log.error(e)
 
-def setup(bot):
+async def setup(bot):
   try:
-    bot.add_cog(Music(bot))
+    await bot.add_cog(Music(bot))
     log.info('Successfully set up music commands')
   except Exception as e:
     log.warning('Error occured when setting up music commands')
