@@ -1,12 +1,13 @@
 # customized version of https://gist.github.com/EvieePy/ab667b74e9758433b3eb806c53a19f34#file-music-py
+import asyncio
 import discord
 import logging
-import asyncio
 from async_timeout import timeout
 from functools import partial
 
 # project imports
 from lib.utils import create_embed
+from lib.utils import delete_temp_dir
 from lib.utils import search
 from lib.utils import FFMPEG_OPTS
 
@@ -15,12 +16,13 @@ log = logging.getLogger('bot')
 
 class YTDLSource():
 
-  def __init__(self, source, title, webpage_url, requester):
+  def __init__(self, source, title, webpage_url, filepath, requester):
     self.source = source
     self.requester = requester
 
     self.title = title
     self.web_url = webpage_url
+    self.filepath = filepath
 
   @classmethod
   async def create(cls, ctx, query: str, loop):
@@ -34,25 +36,10 @@ class YTDLSource():
       if isinstance(e, AttributeError) is False:
         log.error(e)
 
-    title, webpage_url, url = await loop.run_in_executor(None, to_run)
-
-    if ctx.voice_client and ctx.voice_client.is_playing():
-      await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
-      return {'webpage_url': webpage_url, 'requester': id, 'title': title}
+    title, webpage_url, filepath = await loop.run_in_executor(None, to_run)
     
-    source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback')
-    return cls(source, title=title, webpage_url=webpage_url, requester=id)
-  
-  @classmethod
-  async def regather_stream(cls, data, loop):
-    loop = loop or asyncio.get_event_loop()
-    requester = data['requester']
-
-    to_run = partial(search, query=data['webpage_url'])
-    title, webpage_url, url = await loop.run_in_executor(None, to_run)
-
-    source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTS, method='fallback')
-    return cls(source, title=title, webpage_url=webpage_url, requester=requester)
+    source = await discord.FFmpegOpusAudio.from_probe(filepath, **FFMPEG_OPTS, method='fallback')
+    return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id)
 
 class MusicPlayer:
 
@@ -105,17 +92,6 @@ class MusicPlayer:
       except asyncio.TimeoutError:
         log.info('Queue seems to be empty. Cleaning up music player')
         return self.destroy(self.guild)
-
-      if not isinstance(ytdlSource, YTDLSource):
-        ''' in case the queue is super long, there's a chance that queued up songs
-            have already expired so we'll regather the stream to generate a fresh url'''
-        try:
-          ytdlSource = await YTDLSource.regather_stream(ytdlSource, loop=self.bot.loop)
-        except Exception as e:
-          log.warning('There was an error processing a song')
-          log.error(e)
-          await self.channel.send(embed=create_embed('An error occured!'))
-          continue
       
       self.current = ytdlSource
 
@@ -128,11 +104,17 @@ class MusicPlayer:
 
         # cleanup audio source
         ytdlSource.source.cleanup()
+
         self.current = None
       except Exception as e:
         log.error(e)
   
   def destroy(self, guild):
+    try:
+      delete_temp_dir()
+    except Exception as e:
+      log.error(e)
+
     # Disconnect and cleanup music player
     return self.bot.loop.create_task(self.cog.cleanup(guild))
 

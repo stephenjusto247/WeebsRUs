@@ -1,13 +1,14 @@
 # customized from https://gist.github.com/EvieePy/ab667b74e9758433b3eb806c53a19f34#file-music-py
 import discord
-import logging
 import itertools
+import logging
 from discord.ext import commands
 
 # project imports
 from commands.music_player import MusicPlayer
 from commands.music_player import YTDLSource
 from lib.utils import create_embed
+from lib.utils import delete_temp_dir
 
 # set up logging
 log = logging.getLogger('bot')
@@ -130,6 +131,12 @@ class Music(commands.Cog):
     if self.music_player_exists(ctx.guild):
       music_player = self.get_music_player(ctx)
       music_player.clear_queue()
+
+      try:
+        delete_temp_dir()
+      except Exception as e:
+        log.error(e)
+
       await ctx.send(embed=create_embed('<@{}> stopped the music'.format(ctx.author.id)))
     
     await vc.disconnect()
@@ -186,12 +193,15 @@ class Music(commands.Cog):
     ytdlSource = music_player.get_current()
     response = None
 
+    # title attribute seems to be weirdly inconsistent
     try:
       response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource.title, ytdlSource.requester)
-    except Exception as e:
-      log.error(e)
-      return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving current song information'))
-
+    except:
+      try:
+        response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource['title'], ytdlSource.requester)
+      except Exception as e:
+        log.error(e)
+        return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving current song information'))
 
     music_player.message = await ctx.send(embed=create_embed(response))
 
@@ -206,14 +216,18 @@ class Music(commands.Cog):
     if music_player.queue.empty():
       return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
 
-    upcoming = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))   
-    format = None
+    upcoming = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))
 
+    format = None
+    # it seems like the "title" attribute is inconsistent :(
     try:
-      format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource['title']) for index, ytdlSource in enumerate(upcoming))
-    except Exception as e:
-      log.error(e)
-      return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
+      format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource.title) for index, ytdlSource in enumerate(upcoming))
+    except:
+      try:
+        format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource['title']) for index, ytdlSource in enumerate(upcoming))
+      except Exception as e:
+        log.error(e)
+        return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
 
     embed = discord.Embed(title='Upcoming - Next {}'.format(len(upcoming)), description=format)
     await ctx.send(embed=embed)
