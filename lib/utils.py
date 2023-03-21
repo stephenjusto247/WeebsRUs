@@ -1,29 +1,26 @@
-import requests
 import discord
+import os
+import requests
+import shutil
 from yt_dlp import YoutubeDL
 from sclib import SoundcloudAPI, Track
 
+MUSIC_DIRNAME = "music"
+
 YTDL_OPTS = {
+  "format": "bestaudio",
+  "paths": {"home": "./{}/".format(MUSIC_DIRNAME)},
   'noplaylist': True
 }
 
 FFMPEG_OPTS = {
-  "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -analyzeduration 0", 
+  "before_options": "-nostdin", 
   'options': '-vn'
 }
 
 def create_embed(message: str): # create a discord.Embed object
   embed = discord.Embed(description=message)
   return embed
-
-def extract_audio_url(info):
-  if info is not None:
-    for requested_format in info['requested_formats']:
-      # when "fps" is None, the format is audio only
-      if requested_format['fps'] is None:
-        print(requested_format['url'])
-        return requested_format['url']
-  return ''
 
 # search query and return an info obj & a streamable url
 def search(query):
@@ -36,10 +33,16 @@ def search(query):
   except:
     with YoutubeDL(YTDL_OPTS) as ydl:
       try: requests.get(query)
-      except: info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=False))['entries'][0]
-      else: info = ydl.sanitize_info(ydl.extract_info(query, download=False))
+      except: info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
+      else: info = ydl.sanitize_info(ydl.extract_info(query, download=True))
     if 'entries' in info:
       info = info['entries'][0]
     title = info['title']
     webpage_url = info['webpage_url']
-    return (title, webpage_url, extract_audio_url(info))
+    filepath = info["requested_downloads"][0]["filepath"]
+    return (title, webpage_url, filepath)
+
+def delete_temp_dir():
+  temp_dir = os.path.join(os.getcwd(), MUSIC_DIRNAME)
+  if os.path.isdir(temp_dir):
+    shutil.rmtree(temp_dir)
