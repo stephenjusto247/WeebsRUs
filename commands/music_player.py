@@ -37,6 +37,9 @@ class YTDLSource():
         log.error(e)
 
     title, webpage_url, filepath = await loop.run_in_executor(None, to_run)
+
+    if ctx.voice_client and ctx.voice_client.is_playing():
+      await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
     
     source = await discord.FFmpegOpusAudio.from_probe(filepath, **FFMPEG_OPTS, method='fallback')
     return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id)
