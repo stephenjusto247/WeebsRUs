@@ -4,6 +4,7 @@ import os
 import requests
 import shutil
 import time
+from http import HTTPStatus
 from yt_dlp import YoutubeDL
 from sclib import SoundcloudAPI, Track
 
@@ -43,8 +44,9 @@ def search(query):
           try:
             log.info(f"Attempting to download ytsearch \"{query}\" ATTEMPT #{attempt}")
             info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
-          except Exception as e:
-            if attempt != MAX_ATTEMPTS:
+          except requests.exceptions.HTTPError as e:
+            log.error(f"Failed to download with the following error: ")
+            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt != MAX_ATTEMPTS:
               time.sleep(attempt * 100 / 1000)
               continue
             raise Exception from e
@@ -53,8 +55,8 @@ def search(query):
           try:
             log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt}")
             info = ydl.sanitize_info(ydl.extract_info(query, download=True))
-          except Exception as e:
-            if attempt != MAX_ATTEMPTS:
+          except requests.exceptions.HTTPError as e:
+            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt != MAX_ATTEMPTS:
               time.sleep(attempt * 100 / 1000)
               continue
             raise Exception from e
