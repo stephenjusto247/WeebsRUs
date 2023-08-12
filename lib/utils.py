@@ -1,11 +1,14 @@
 import discord
+import logging
 import os
 import requests
 import shutil
+import time
 from yt_dlp import YoutubeDL
 from sclib import SoundcloudAPI, Track
 
 MUSIC_DIRNAME = "music"
+MAX_ATTEMPTS = 11
 
 YTDL_OPTS = {
   "format": "bestaudio",
@@ -17,6 +20,8 @@ FFMPEG_OPTS = {
   "before_options": "-nostdin", 
   'options': '-vn'
 }
+
+log = logging.getLogger('bot')
 
 def create_embed(message: str): # create a discord.Embed object
   embed = discord.Embed(description=message)
@@ -33,8 +38,26 @@ def search(query):
   except:
     with YoutubeDL(YTDL_OPTS) as ydl:
       try: requests.get(query)
-      except: info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
-      else: info = ydl.sanitize_info(ydl.extract_info(query, download=True))
+      except:
+        for attempt in range(MAX_ATTEMPTS):
+          try:
+            log.info(f"Attempting to download ytsearch \"{query}\" ATTEMPT #{attempt}")
+            info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
+          except Exception as e:
+            if attempt != MAX_ATTEMPTS:
+              time.sleep(attempt * 100 / 1000)
+              continue
+            raise Exception from e
+      else:
+        for attempt in range(MAX_ATTEMPTS):
+          try:
+            log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt}")
+            info = ydl.sanitize_info(ydl.extract_info(query, download=True))
+          except Exception as e:
+            if attempt != MAX_ATTEMPTS:
+              time.sleep(attempt * 100 / 1000)
+              continue
+            raise Exception from e
     if 'entries' in info:
       info = info['entries'][0]
     title = info['title']
