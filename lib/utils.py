@@ -30,6 +30,8 @@ def create_embed(message: str): # create a discord.Embed object
 
 # search query and return an info obj & a streamable url
 def search(query):
+  info = None
+
   try:
     api = SoundcloudAPI()  
     track = api.resolve(query)
@@ -41,30 +43,24 @@ def search(query):
       try: requests.get(query)
       except:
         for attempt in range(MAX_ATTEMPTS):
-          try:
-            log.info(f"Attempting to download ytsearch \"{query}\" ATTEMPT #{attempt}")
-            info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
-            break
-          except Exception as e:
-            logging.info("error: %s", dir(e))
-            logging.error("Failed to download: %s", e, exc_info=True)
-            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt < MAX_ATTEMPTS - 1:
-              time.sleep(attempt * 100 / 1000)
-              continue
-            raise Exception from e
+          log.info(f"Attempting to download ytsearch \"{query}\" ATTEMPT #{attempt + 1}")
+          info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
+
+          if info is None:
+            logging.info("Failed :(")
+            time.sleep(attempt * 100 / 1000)
+            continue
+          break     
       else:
         for attempt in range(MAX_ATTEMPTS):
-          log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt}")
+          log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt + 1}")
           info = ydl.sanitize_info(ydl.extract_info(query, download=True))
-          
-          if info is nil
-          except Exception as e:
-            logging.info("error: %s", dir(e))
-            logging.error("Failed to download: %s", e, exc_info=True)
-            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt < MAX_ATTEMPTS - 1:
-              time.sleep(attempt * 100 / 1000)
-              continue
-            raise Exception from e
+
+          if info is None:
+            logging.info("Failed :(")
+            time.sleep(attempt * 100 / 1000)
+            continue
+          break
     if 'entries' in info:
       info = info['entries'][0]
     title = info['title']
