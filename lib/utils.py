@@ -54,10 +54,10 @@ def search(query):
             raise Exception from e
       else:
         for attempt in range(MAX_ATTEMPTS):
-          try:
-            log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt}")
-            info = ydl.sanitize_info(ydl.extract_info(query, download=True))
-            break
+          log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt}")
+          info = ydl.sanitize_info(ydl.extract_info(query, download=True))
+          
+          if info is nil
           except Exception as e:
             logging.info("error: %s", dir(e))
             logging.error("Failed to download: %s", e, exc_info=True)
