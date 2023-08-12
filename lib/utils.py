@@ -44,9 +44,10 @@ def search(query):
           try:
             log.info(f"Attempting to download ytsearch \"{query}\" ATTEMPT #{attempt}")
             info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
-          except requests.exceptions.HTTPError as e:
-            log.error(f"Failed to download with the following error: ")
-            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt != MAX_ATTEMPTS:
+          except Exception as e:
+            logging.info("error: %s", dir(e))
+            logging.error("Failed to download: %s", e, exc_info=True)
+            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt < MAX_ATTEMPTS:
               time.sleep(attempt * 100 / 1000)
               continue
             raise Exception from e
@@ -55,8 +56,10 @@ def search(query):
           try:
             log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt}")
             info = ydl.sanitize_info(ydl.extract_info(query, download=True))
-          except requests.exceptions.HTTPError as e:
-            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt != MAX_ATTEMPTS:
+          except Exception as e:
+            logging.info("error: %s", dir(e))
+            logging.error("Failed to download: %s", e, exc_info=True)
+            if e.response.status_code == HTTPStatus.SERVICE_UNAVAILABLE and attempt < MAX_ATTEMPTS:
               time.sleep(attempt * 100 / 1000)
               continue
             raise Exception from e
