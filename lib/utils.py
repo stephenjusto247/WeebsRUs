@@ -4,8 +4,7 @@ import os
 import requests
 import shutil
 import time
-from http import HTTPStatus
-from yt_dlp import YoutubeDL
+from yt_dlp import YoutubeDL, utils
 from sclib import SoundcloudAPI, Track
 
 MUSIC_DIRNAME = "music"
@@ -30,8 +29,6 @@ def create_embed(message: str): # create a discord.Embed object
 
 # search query and return an info obj & a streamable url
 def search(query):
-  info = None
-
   try:
     api = SoundcloudAPI()  
     track = api.resolve(query)
@@ -44,23 +41,21 @@ def search(query):
       except:
         for attempt in range(MAX_ATTEMPTS):
           log.info(f"Attempting to download ytsearch \"{query}\" ATTEMPT #{attempt + 1}")
-          info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
-
-          if info is None:
-            logging.info("Failed :(")
+          try:
+            info = ydl.sanitize_info(ydl.extract_info("ytsearch:{}".format(query), download=True))['entries'][0]
+            break
+          except utils.DownloadError:
             time.sleep(attempt * 100 / 1000)
-            continue
-          break     
+            continue   
       else:
         for attempt in range(MAX_ATTEMPTS):
           log.info(f"Attempting to download \"{query}\" ATTEMPT #{attempt + 1}")
-          info = ydl.sanitize_info(ydl.extract_info(query, download=True))
-
-          if info is None:
-            logging.info("Failed :(")
+          try:
+            info = ydl.sanitize_info(ydl.extract_info(query, download=True))
+            break
+          except utils.DownloadError:
             time.sleep(attempt * 100 / 1000)
-            continue
-          break
+            continue   
     if 'entries' in info:
       info = info['entries'][0]
     title = info['title']
