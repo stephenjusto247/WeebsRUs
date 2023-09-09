@@ -119,6 +119,25 @@ class Music(commands.Cog):
     await music_player.queue.put(ytdlSource)
 
   @commands.command()
+  async def replay(self, ctx):
+    if await self.__verify(ctx) is False:
+      return
+
+    vc = ctx.voice_client
+
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+  
+    if self.music_player_exists(ctx.guild):
+      music_player = self.get_music_player(ctx)
+      music_player.replay = not music_player.replay
+
+      if music_player.replay:
+        await ctx.send(embed=create_embed('<@{}> enabled replay'.format(ctx.author.id)))
+      else:
+        await ctx.send(embed=create_embed('<@{}> disabled replay'.format(ctx.author.id)))
+
+  @commands.command()
   async def stop(self, ctx):
     if await self.__verify(ctx) is False:
       return
@@ -214,7 +233,10 @@ class Music(commands.Cog):
 
     music_player = self.get_music_player(ctx=ctx)
     if music_player.queue.empty():
-      return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
+      if music_player.replay:
+        return await ctx.send(embed=create_embed('<@{}> There are no queued songs. The current song will replay'.format(ctx.author.id)))
+      else:
+        return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
 
     upcoming = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))
 
@@ -228,8 +250,9 @@ class Music(commands.Cog):
       except Exception as e:
         log.error(e)
         return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
-
-    embed = discord.Embed(title='Upcoming - Next {}'.format(len(upcoming)), description=format)
+    
+    replay_message = "Replay is enabled" if music_player.replay else "Replay is disabled"
+    embed = discord.Embed(title='Upcoming - Next {} ({})'.format(len(upcoming), replay_message), description=format)
     await ctx.send(embed=embed)
 
   @commands.command()

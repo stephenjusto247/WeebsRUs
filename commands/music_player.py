@@ -16,13 +16,14 @@ log = logging.getLogger('bot')
 
 class YTDLSource():
 
-  def __init__(self, source, title, webpage_url, filepath, requester):
+  def __init__(self, source, title, webpage_url, filepath, requester,  ctx):
     self.source = source
     self.requester = requester
 
     self.title = title
-    self.web_url = webpage_url
+    self.webpage_url = webpage_url
     self.filepath = filepath
+    self.ctx = ctx
 
   @classmethod
   async def create(cls, ctx, query: str, loop):
@@ -42,11 +43,16 @@ class YTDLSource():
       await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
     
     source = await discord.FFmpegOpusAudio.from_probe(filepath, **FFMPEG_OPTS, method='fallback')
-    return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id)
+    return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id, ctx=ctx)
+
+  @classmethod
+  async def replicate(cls, ytdlSource):
+    source = await discord.FFmpegOpusAudio.from_probe(ytdlSource.filepath, **FFMPEG_OPTS, method='fallback')
+    return cls(source, title=ytdlSource.title, webpage_url=ytdlSource.webpage_url, filepath=ytdlSource.filepath, requester=ytdlSource.requester, ctx=ytdlSource.ctx)
 
 class MusicPlayer:
 
-  __slots__ = ('bot', 'guild', 'channel', 'cog', 'queue', 'next', 'current', 'message')
+  __slots__ = ('bot', 'guild', 'channel', 'cog', 'queue', 'next', 'current', 'message', 'replay')
 
   def __init__(self, ctx):
     self.bot = ctx.bot
@@ -59,6 +65,7 @@ class MusicPlayer:
 
     self.message = None # now playing message
     self.current = None # current YTDLSource
+    self.replay = False
 
     self.bot.loop.create_task(self.player_loop())
   
@@ -103,7 +110,12 @@ class MusicPlayer:
         if ytdlSource.requester != '':
           self.message = await self.channel.send(embed=create_embed('**Now Playing:**\n\"{}\"\nrequested by <@{}>'.format(ytdlSource.title, ytdlSource.requester)))
 
+        # wait for audio to finish playing
         await self.next.wait()
+
+        # put the audio back into queue if replay is true
+        if self.replay:
+          await self.queue.put(await YTDLSource.replicate(ytdlSource))
 
         # cleanup audio source
         ytdlSource.source.cleanup()
