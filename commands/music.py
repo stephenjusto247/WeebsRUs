@@ -1,6 +1,5 @@
 # customized from https://gist.github.com/EvieePy/ab667b74e9758433b3eb806c53a19f34#file-music-py
 import discord
-import itertools
 import logging
 from discord.ext import commands
 
@@ -238,7 +237,7 @@ class Music(commands.Cog):
       else:
         return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
 
-    upcoming = list(itertools.islice(music_player.queue._queue, 0, music_player.queue.qsize()))
+    upcoming = music_player.get_upcoming()
 
     format = None
     # it seems like the "title" attribute is inconsistent :(
@@ -254,6 +253,28 @@ class Music(commands.Cog):
     replay_message = "Replay is enabled" if music_player.replay else "Replay is disabled"
     embed = discord.Embed(title='Upcoming - Next {} ({})'.format(len(upcoming), replay_message), description=format)
     await ctx.send(embed=embed)
+
+  @commands.command()
+  async def remove(self, ctx, *, pos: int):
+    if await self.__verify(ctx) is False:
+      return
+    
+    vc = ctx.voice_client
+    if not vc or not vc.is_connected():
+      return await ctx.send(embed=create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+    
+    music_player = self.get_music_player(ctx=ctx)
+    if music_player.queue.empty():
+      return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
+
+    upcoming = music_player.get_upcoming()
+    if pos <= 0 or len(upcoming) < pos:
+      return await ctx.send(embed=create_embed('<@{}> **{}** is not a valid position in the queue'.format(ctx.author.id, pos)))
+      
+    removed = upcoming[pos - 1]
+    await music_player.remove(pos)
+
+    return await ctx.send(embed=create_embed('<@{}> removed **{}** from the queue'.format(ctx.author.id, removed.title)))
 
   @commands.command()
   async def skip(self, ctx):

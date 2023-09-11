@@ -1,6 +1,7 @@
 # customized version of https://gist.github.com/EvieePy/ab667b74e9758433b3eb806c53a19f34#file-music-py
 import asyncio
 import discord
+import itertools
 import logging
 from async_timeout import timeout
 from functools import partial
@@ -16,7 +17,7 @@ log = logging.getLogger('bot')
 
 class YTDLSource():
 
-  def __init__(self, source, title, webpage_url, filepath, requester,  ctx):
+  def __init__(self, source, title, webpage_url, filepath, requester, ctx):
     self.source = source
     self.requester = requester
 
@@ -73,6 +74,25 @@ class MusicPlayer:
     if e:
       log.error(e)
     self.bot.loop.call_soon_threadsafe(self.next.set)
+  
+  def get_upcoming(self):
+    return list(itertools.islice(self.queue._queue, 0, self.queue.qsize()))
+  
+  # remove an element from the queue given a position
+  async def remove(self, pos: int):
+    if pos <= 0:
+      return
+
+    new_queue = asyncio.Queue()
+    current_pos = 0
+
+    while not self.queue.empty():
+      item = await self.queue.get()
+      current_pos += 1
+      if current_pos != pos:
+        await new_queue.put(item)
+    
+    self.queue = new_queue
 
   def clear_queue(self):
     for _ in range(self.queue.qsize()):
