@@ -32,7 +32,8 @@ class Info(commands.Cog):
         ['currentsong', 'Display current song'],
         ['skip', 'Skips the current song'],
         ['queue', 'Get queue info'],
-        ['replay', 'Enable/disable replay of the entire queue']
+        ['replay', 'Enable/disable replay of the entire queue'],
+        ['remove', 'Remove a song from the queue']
       ]
       for row in rows:
         row[0] = COMMAND_PREFIX + row[0]
