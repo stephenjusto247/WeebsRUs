@@ -1,10 +1,14 @@
 FROM python:3.10.2 
 
 WORKDIR /app
-ADD . /app
 
-RUN apt-get update && apt-get install -y ffmpeg
-
+ADD ./requirements.txt /app/requirements.txt
 RUN pip install -r requirements.txt
+
+ADD . /app
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+    && apt-get update && apt-get install -y ffmpeg
 
 CMD ["python", "bot.py"]
