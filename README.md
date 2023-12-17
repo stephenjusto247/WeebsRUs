@@ -7,7 +7,7 @@ docker build -t discord-bot .
 ```
 
 Run the docker image to start the bot:
-```
+```console
 docker run --rm discord-bot
 ```
 
