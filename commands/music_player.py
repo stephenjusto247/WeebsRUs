@@ -41,7 +41,7 @@ class YTDLSource():
     title, webpage_url, filepath = await loop.run_in_executor(None, to_run)
 
     if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
-      await interaction.response.send_message(embed=create_embed('**Queued up** \"{}\"'.format(title)))
+      await interaction.channel.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
     
     source = await discord.FFmpegOpusAudio.from_probe(filepath, **FFMPEG_OPTS, method='fallback')
     return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id, interaction=interaction)

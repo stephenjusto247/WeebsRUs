@@ -80,7 +80,12 @@ class Music(commands.Cog):
     if vc and vc.channel.id != interaction.user.voice.channel.id:
       return await interaction.response.send_message(embed=create_embed('<@{}> You must be in the same voice channel as me'.format(interaction.user.id)))
 
-    await interaction.response.defer(ephemeral=True, thinking=True)
+    try:
+      await interaction.response.defer(ephemeral=True, thinking=True)
+    except Exception as e:
+      self.log.error(e)
+
+      return
     
     music_player = self.get_music_player(interaction=interaction)
     ytdlSource = await YTDLSource.create(interaction, search, loop=self.bot.loop)
