@@ -14,30 +14,34 @@ import commands.info as Info
 # environment variables
 dotenv.load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
+guild_id = os.getenv('GUILD_ID')
+activity = os.getenv('ACTIVITY')
 
 # set up logging
 logging.basicConfig(filename='bot.log', encoding='utf-8', level=logging.INFO)
-logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-consoleHandler = logging.StreamHandler(sys.stdout)
-consoleHandler.setFormatter(logFormatter)
+formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
 log = logging.getLogger('bot')
-log.addHandler(consoleHandler)
+log.addHandler(handler)
 
-cogs = [Music, Info]
-bot = commands.Bot(command_prefix=Info.COMMAND_PREFIX, intents=discord.Intents.all(), activity=discord.Game('with Corey\'s heart'))
-for cog in cogs:
-  asyncio.run(cog.setup(bot))
+bot = commands.Bot(command_prefix=Info.COMMAND_PREFIX, intents=discord.Intents.all(), activity=discord.Game(activity))
 
 @bot.event
-async def on_message(message):
-  if message.author == bot.user: # ignore bot's own messages
-    return
+async def on_ready():
+  try:
+    commands = await bot.tree.sync(guild=discord.Object(id=guild_id))
+    command_names = []
+    for command in commands:
+      command_names.append(f'{command.name}')
+    log.info(f'Successfully synced {command_names}')
+  except Exception as e:
+    log.error(e)
 
-  if message.guild:
-    await bot.process_commands(message) # process bot commands if message is not a dm
+async def load_cogs():
+  cogs = [Music, Info]
+  for cog in cogs:
+    await cog.setup(bot, log, guild_id)
 
-try:
-  bot.run(token)
-except Exception as e:
-  log.debug('Failed to connect the bot to the server\n')
-  log.error(e)
+asyncio.run(load_cogs())
+bot.run(token, reconnect=True, log_handler=handler)

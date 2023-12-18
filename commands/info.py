@@ -1,13 +1,11 @@
-import logging
+import discord
 import sys
+from discord import app_commands
 from discord.ext import commands
 from prettytable import PrettyTable
 
 # project imports
 from lib.utils import create_embed
-
-# set up logging
-log = logging.getLogger('bot')
 
 # Checks if user set a prefix
 if (len(sys.argv) > 1 and len(sys.argv[1]) == 1):
@@ -16,11 +14,12 @@ else:
     COMMAND_PREFIX = '$'
 
 class Info(commands.Cog):
-  def __init__(self, bot):
+  def __init__(self, bot, log):
     self.bot = bot
+    self.log = log
 
-  @commands.command()
-  async def help(self, ctx):
+  @app_commands.command(name="help", description="Displays a list of commands")
+  async def help(self, interaction: discord.Interaction):
     try:
       table = PrettyTable()
       table.field_names = ['command', 'description']
@@ -39,15 +38,14 @@ class Info(commands.Cog):
         row[0] = COMMAND_PREFIX + row[0]
         table.add_row(row)
       response = table.get_string()
-      await ctx.send(embed=create_embed('**command list**\n```\n{}\n```'.format(response)))
+      await interaction.response.send_message(embed=create_embed('**command list**\n```\n{}\n```'.format(response)))
     except Exception as e:
-      log.error(e)
+      self.log.error(e)
 
-async def setup(bot):
-  try:
-    bot.remove_command('help')
-    await bot.add_cog(Info(bot))
-    log.info('Successfully set up help command')
+async def setup(bot, log, guild_id):
+  bot.remove_command('help')
+
+  try:    
+    await bot.add_cog(Info(bot, log), guilds=[discord.Object(id=guild_id)])
   except Exception as e:
-    log.info('Error occured when setting up info\n')
     log.error(e)

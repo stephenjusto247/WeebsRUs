@@ -1,6 +1,6 @@
 # customized from https://gist.github.com/EvieePy/ab667b74e9758433b3eb806c53a19f34#file-music-py
 import discord
-import logging
+from discord import app_commands
 from discord.ext import commands
 
 # project imports
@@ -9,15 +9,13 @@ from commands.music_player import YTDLSource
 from lib.utils import create_embed
 from lib.utils import delete_temp_dir
 
-# set up logging
-log = logging.getLogger('bot')
-
 class Music(commands.Cog):
 
   __slots__ = ('bot', 'music_players')
 
-  def __init__(self, bot):
+  def __init__(self, bot, log):
     self.bot = bot
+    self.log = log
     self.music_players = {}
 
   async def cleanup(self, guild):
@@ -31,25 +29,18 @@ class Music(commands.Cog):
     except KeyError:
       pass
 
-  def get_music_player(self, ctx=None, guild=None):
+  def get_music_player(self, interaction: discord.Interaction):
     music_player = None
-
-    if ctx:
-      try:
-        music_player = self.music_players[ctx.guild.id]
-      except KeyError:
-        music_player = MusicPlayer(ctx)
-        self.music_players[ctx.guild.id] = music_player
-    
-    elif guild:
-      try:
-        music_player = self.music_players[guild.id]
-      except KeyError:
-        pass
+    try:
+      music_player = self.music_players[interaction.guild_id]
+    except KeyError:
+      interaction.command.extras['cog'] = self
+      music_player = MusicPlayer(interaction)
+      self.music_players[interaction.guild_id] = music_player
     
     return music_player
 
-  def music_player_exists(self, guild=None):
+  def music_player_exists(self, guild):
     try:
       self.music_players[guild.id]
       return True
@@ -58,154 +49,134 @@ class Music(commands.Cog):
 
     return False
 
-  async def __verify(self, ctx):
-    if ctx.voice_client is None:
-      await ctx.send(embed=create_embed('<@{}> I am not connected to a voice channel'.format(ctx.author.id)))
+  async def __verify(self, interaction: discord.Interaction):
+    if interaction.guild.voice_client is None:
+      await interaction.response.send_message(embed=create_embed('<@{}> I am not connected to a voice channel'.format(interaction.user.id)))
       return False
-    if ctx.author.voice is None:
-      await ctx.send(embed=create_embed('<@{}> You are not connected to a voice channel'.format(ctx.author.id)))
+    if interaction.user.voice is None:
+      await interaction.response.send_message(embed=create_embed('<@{}> You are not connected to a voice channel'.format(interaction.user.id)))
       return False
-    if ctx.author.voice.channel != ctx.voice_client.channel:
-      await ctx.send(embed=create_embed('<@{}> You must be in the same voice channel as me'.format(ctx.author.id)))
+    if interaction.user.voice.channel != interaction.guild.voice_client.channel:
+      await interaction.response.send_message(embed=create_embed('<@{}> You must be in the same voice channel as me'.format(interaction.user.id)))
       return False
       
     return True
 
-  @commands.command() # returns True on success
-  async def connect(self, ctx, channel: discord.VoiceChannel=None):
-    if not channel:
-      try:
-        channel = ctx.author.voice.channel
-      except Exception as e:
-        if isinstance(e, AttributeError):
-          await ctx.send(embed=create_embed('<@{}> Please connect to a voice channel first'.format(ctx.author.id)))
-        else:
-          log.error(e)
-        return False
+  @app_commands.command(name="play", description="Plays music from a search query or URL")
+  @app_commands.describe(search="The YouTube search query or URL (YouTube/Soundcloud)")
+  async def play(self, interaction: discord.Interaction, search: str):
+    vc = interaction.guild.voice_client
 
-    vc = ctx.voice_client
+    if interaction.user.voice is None:
+      return await interaction.response.send_message(embed=create_embed('<@{}> Please connect to a voice channel first'.format(interaction.user.id)))
 
-    if vc:
-      if vc.channel.id == channel.id:
-        return True
+    if vc is None:
       try:
-        await vc.move_to(channel)
+        await interaction.user.voice.channel.connect()
       except Exception as e:
-        log.error(e)
-        return False
-    else:
-      try:
-        await channel.connect()
-      except Exception as e:
-        log.error(e)
-        return False
+        self.log.error(e)
+        return await interaction.response.send_message(embed=create_embed('<@{}> I could not connect to your voice channel'.format(interaction.user.id)))
+
+    if vc and vc.channel.id != interaction.user.voice.channel.id:
+      return await interaction.response.send_message(embed=create_embed('<@{}> You must be in the same voice channel as me'.format(interaction.user.id)))
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
     
-    return True
-
-  @commands.command()
-  async def play(self, ctx, *, search: str):
-    vc = ctx.voice_client
-
-    if not vc:
-      if await ctx.invoke(self.connect) is False:
-        return
-
-    await ctx.typing()  # typing signal on Discord
-    
-    music_player = self.get_music_player(ctx=ctx)
-    ytdlSource = await YTDLSource.create(ctx, search, loop=self.bot.loop)
-
+    music_player = self.get_music_player(interaction=interaction)
+    ytdlSource = await YTDLSource.create(interaction, search, loop=self.bot.loop)
     await music_player.queue.put(ytdlSource)
 
-  @commands.command()
-  async def replay(self, ctx):
-    if await self.__verify(ctx) is False:
+    return await interaction.followup.send('Queued up {}'.format(search), ephemeral=True, silent=True)
+
+  @app_commands.command(name="replay", description="Toggles the replay of the entire queue")
+  async def replay(self, interaction: discord.Interaction):
+    if await self.__verify(interaction) is False:
       return
 
-    vc = ctx.voice_client
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not in a voice channel'.format(interaction.user.id)))
   
-    if self.music_player_exists(ctx.guild):
-      music_player = self.get_music_player(ctx)
+    if self.music_player_exists(interaction.guild):
+      music_player = self.get_music_player(interaction=interaction)
       music_player.replay = not music_player.replay
 
       if music_player.replay:
-        await ctx.send(embed=create_embed('<@{}> enabled replay'.format(ctx.author.id)))
+        await interaction.response.send_message(embed=create_embed('<@{}> enabled replay'.format(interaction.user.id)))
       else:
-        await ctx.send(embed=create_embed('<@{}> disabled replay'.format(ctx.author.id)))
+        await interaction.response.send_message(embed=create_embed('<@{}> disabled replay'.format(interaction.user.id)))
 
-  @commands.command()
-  async def stop(self, ctx):
-    if await self.__verify(ctx) is False:
+  @app_commands.command(name="stop", description="Stops music and disconnects the bot")
+  async def stop(self, interaction: discord.Interaction):
+    if await self.__verify(interaction) is False:
       return
 
-    vc = ctx.voice_client
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not in a voice channel'.format(interaction.user.id)))
 
-    if self.music_player_exists(ctx.guild):
-      music_player = self.get_music_player(ctx)
+    if self.music_player_exists(interaction.guild):
+      music_player = self.get_music_player(interaction=interaction)
       music_player.clear_queue()
 
       try:
         delete_temp_dir()
       except Exception as e:
-        log.error(e)
+        self.log.error(e)
 
-      await ctx.send(embed=create_embed('<@{}> stopped the music'.format(ctx.author.id)))
+      await interaction.response.send_message(embed=create_embed('<@{}> stopped the music'.format(interaction.user.id)))
     
     await vc.disconnect()
 
-  @commands.command()
-  async def pause(self, ctx):
-    if await self.__verify(ctx) is False:
+  @app_commands.command(name="pause", description="Pauses the music")
+  async def pause(self, interaction: discord.Interaction):
+    if await self.__verify(interaction) is False:
       return
 
-    vc = ctx.voice_client
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not in a voice channel'.format(interaction.user.id)))
 
     if vc.is_playing():
       vc.pause()
-      return await ctx.send(embed=create_embed('<@{}> paused the music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> paused the music'.format(interaction.user.id)))
 
-    await ctx.send(embed=create_embed('<@{}> music is already paused'.format(ctx.author.id)))
+    await interaction.response.send_message(embed=create_embed('<@{}> music is already paused'.format(interaction.user.id)))
 
-  @commands.command()
-  async def resume(self, ctx):
-    if await self.__verify(ctx) is False:
+  @app_commands.command(name="resume", description="Resumes the music")
+  async def resume(self, interaction: discord.Interaction):
+    if await self.__verify(interaction) is False:
       return
 
-    vc = ctx.voice_client
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not in a voice channel'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not in a voice channel'.format(interaction.user.id)))
 
     if vc.is_playing() is False:
       vc.resume()
-      return await ctx.send(embed=create_embed('<@{}> resumed the music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> resumed the music'.format(interaction.user.id)))
 
-    await ctx.send(embed=create_embed('<@{}> music is already playing'.format(ctx.author.id)))
+    await interaction.response.send_message(embed=create_embed('<@{}> music is already playing'.format(interaction.user.id)))
 
-  @commands.command(name='current_song', aliases=['currentsong'])
-  async def current_song(self, ctx):
-    vc = ctx.voice_client
+  @app_commands.command(name="currentsong", description="Displays the current song")
+  async def current_song(self, interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not playing music'.format(interaction.user.id)))
     
-    music_player = self.get_music_player(ctx=ctx)
+    music_player = self.get_music_player(interaction=interaction)
     if music_player.current is None:
-      return await ctx.send(embed=create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not playing music'.format(interaction.user.id)))
     
     try:
       await music_player.message.delete()
     except Exception as e:
-      log.error(e)
+      self.log.error(e)
       pass
     
     ytdlSource = music_player.get_current()
@@ -218,24 +189,24 @@ class Music(commands.Cog):
       try:
         response = '**Now Playing:**\n\"{}\" requested by <@{}>'.format(ytdlSource['title'], ytdlSource.requester)
       except Exception as e:
-        log.error(e)
-        return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving current song information'))
+        self.log.error(e)
+        return await interaction.response.send_message(embed=create_embed('Sorry! An error occured when retrieving current song information'))
 
-    music_player.message = await ctx.send(embed=create_embed(response))
+    music_player.message = await interaction.response.send_message(embed=create_embed(response))
 
-  @commands.command(name='queue')
-  async def queue_info(self, ctx):
-    vc = ctx.voice_client
+  @app_commands.command(name="queue", description="Displays the music queue")
+  async def queue_info(self, interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not playing music'.format(interaction.user.id)))
 
-    music_player = self.get_music_player(ctx=ctx)
+    music_player = self.get_music_player(interaction=interaction)
     if music_player.queue.empty():
       if music_player.replay:
-        return await ctx.send(embed=create_embed('<@{}> There are no queued songs. The current song will replay'.format(ctx.author.id)))
+        return await interaction.response.send_message(embed=create_embed('<@{}> There are no queued songs. The current song will replay'.format(interaction.user.id)))
       else:
-        return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
+        return await interaction.response.send_message(embed=create_embed('<@{}> There are no queued songs'.format(interaction.user.id)))
 
     upcoming = music_player.get_upcoming()
 
@@ -247,68 +218,57 @@ class Music(commands.Cog):
       try:
         format = '\n'.join('**{}.** {}'.format(index+1, ytdlSource['title']) for index, ytdlSource in enumerate(upcoming))
       except Exception as e:
-        log.error(e)
-        return await ctx.send(embed=create_embed('Sorry! An error occured when retrieving queue information'))
+        self.log.error(e)
+        return await interaction.response.send_message(embed=create_embed('Sorry! An error occured when retrieving queue information'))
     
     replay_message = "Replay is enabled" if music_player.replay else "Replay is disabled"
     embed = discord.Embed(title='Upcoming - Next {} ({})'.format(len(upcoming), replay_message), description=format)
-    await ctx.send(embed=embed)
+    await interaction.response.send_message(embed=embed)
 
-  @commands.command()
-  async def remove(self, ctx, *, pos: int):
-    if await self.__verify(ctx) is False:
+  @app_commands.command(name="remove", description="Removes a song from the queue")
+  @app_commands.describe(position="The position of the song in the queue to remove")
+  async def remove(self, interaction: discord.Interaction, position: int):
+    if await self.__verify(interaction) is False:
       return
     
-    vc = ctx.voice_client
+    vc = interaction.guild.voice_client
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not playing music'.format(interaction.user.id)))
     
-    music_player = self.get_music_player(ctx=ctx)
+    music_player = self.get_music_player(interaction=interaction)
     if music_player.queue.empty():
-      return await ctx.send(embed=create_embed('<@{}> There are no queued songs'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> There are no queued songs'.format(interaction.user.id)))
 
     upcoming = music_player.get_upcoming()
-    if pos <= 0 or len(upcoming) < pos:
-      return await ctx.send(embed=create_embed('<@{}> **{}** is not a valid position in the queue'.format(ctx.author.id, pos)))
+    if position <= 0 or len(upcoming) < position:
+      return await interaction.response.send_message(embed=create_embed('<@{}> **{}** is not a valid position in the queue'.format(interaction.user.id, position)))
       
-    removed = upcoming[pos - 1]
-    await music_player.remove(pos)
+    removed = upcoming[position - 1]
+    await music_player.remove(position)
 
-    return await ctx.send(embed=create_embed('<@{}> removed **{}** from the queue'.format(ctx.author.id, removed.title)))
+    return await interaction.response.send_message(embed=create_embed('<@{}> removed **{}** from the queue'.format(interaction.user.id, removed.title)))
 
-  @commands.command()
-  async def skip(self, ctx):
-    if await self.__verify(ctx) is False:
+  @app_commands.command(name="skip", description="Skips the current song")
+  async def skip(self, interaction: discord.Interaction):
+    if await self.__verify(interaction) is False:
       return
 
-    vc = ctx.voice_client
+    vc = interaction.guild.voice_client
 
     if not vc or not vc.is_connected():
-      return await ctx.send(embed=create_embed('<@{}> I am not playing music'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> I am not playing music'.format(interaction.user.id)))
     
     # check if music is paused before checking if music is playing
     if vc.is_paused():
       pass
     elif not vc.is_playing():
-      return await ctx.send(embed=create_embed('<@{}> there are no more songs to play'.format(ctx.author.id)))
+      return await interaction.response.send_message(embed=create_embed('<@{}> there are no more songs to play'.format(interaction.user.id)))
     
     vc.stop()
-    await ctx.send(embed=create_embed('<@{}> skipped the song'.format(ctx.author.id)))
-  
-  @commands.Cog.listener()
-  async def on_command_error(self, ctx, error):
-    if isinstance(error, commands.errors.MissingRequiredArgument):
-      error_str_arr = str(error).split(' ')
-      if (error_str_arr[0] == 'search'):
-        try:
-          await ctx.send(embed=create_embed('<@{}> Please specify a query'.format(ctx.author.id)))
-        except Exception as e:
-          log.error(e)
+    await interaction.response.send_message(embed=create_embed('<@{}> skipped the song'.format(interaction.user.id)))
 
-async def setup(bot):
+async def setup(bot, log, guild_id):
   try:
-    await bot.add_cog(Music(bot))
-    log.info('Successfully set up music commands')
+    await bot.add_cog(Music(bot, log), guilds=[discord.Object(id=guild_id)])
   except Exception as e:
-    log.warning('Error occured when setting up music commands')
     log.error(e)
