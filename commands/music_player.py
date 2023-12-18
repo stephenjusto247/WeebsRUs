@@ -17,49 +17,49 @@ log = logging.getLogger('bot')
 
 class YTDLSource():
 
-  def __init__(self, source, title, webpage_url, filepath, requester, ctx):
+  def __init__(self, source, title, webpage_url, filepath, requester, interaction):
     self.source = source
     self.requester = requester
 
     self.title = title
     self.webpage_url = webpage_url
     self.filepath = filepath
-    self.ctx = ctx
+    self.interaction = interaction
 
   @classmethod
-  async def create(cls, ctx, query: str, loop):
+  async def create(cls, interaction: discord.Interaction, query: str, loop):
     loop = loop or asyncio.get_event_loop()
     to_run = partial(search, query=query)
     id = ''
 
     try:
-      id = ctx.author.id
+      id = interaction.user.id
     except Exception as e:
       if isinstance(e, AttributeError) is False:
         log.error(e)
 
     title, webpage_url, filepath = await loop.run_in_executor(None, to_run)
 
-    if ctx.voice_client and ctx.voice_client.is_playing():
-      await ctx.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
+    if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
+      await interaction.response.send_message(embed=create_embed('**Queued up** \"{}\"'.format(title)))
     
     source = await discord.FFmpegOpusAudio.from_probe(filepath, **FFMPEG_OPTS, method='fallback')
-    return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id, ctx=ctx)
+    return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id, interaction=interaction)
 
   @classmethod
   async def replicate(cls, ytdlSource):
     source = await discord.FFmpegOpusAudio.from_probe(ytdlSource.filepath, **FFMPEG_OPTS, method='fallback')
-    return cls(source, title=ytdlSource.title, webpage_url=ytdlSource.webpage_url, filepath=ytdlSource.filepath, requester=ytdlSource.requester, ctx=ytdlSource.ctx)
+    return cls(source, title=ytdlSource.title, webpage_url=ytdlSource.webpage_url, filepath=ytdlSource.filepath, requester=ytdlSource.requester, interaction=ytdlSource.interaction)
 
 class MusicPlayer:
 
   __slots__ = ('bot', 'guild', 'channel', 'cog', 'queue', 'next', 'current', 'message', 'replay')
 
-  def __init__(self, ctx):
-    self.bot = ctx.bot
-    self.guild = ctx.guild
-    self.channel = ctx.channel
-    self.cog = ctx.cog
+  def __init__(self, interaction: discord.Interaction):
+    self.bot = interaction.client
+    self.guild = interaction.guild
+    self.channel = interaction.channel
+    self.cog = interaction.command.extras['cog']
 
     self.queue = asyncio.Queue()
     self.next = asyncio.Event()
@@ -152,4 +152,3 @@ class MusicPlayer:
 
     # Disconnect and cleanup music player
     return self.bot.loop.create_task(self.cog.cleanup(guild))
-
