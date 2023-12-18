@@ -13,7 +13,8 @@ MAX_ATTEMPTS = 11
 YTDL_OPTS = {
   "format": "bestaudio",
   "paths": {"home": "./{}/".format(MUSIC_DIRNAME)},
-  'noplaylist': True
+  'noplaylist': True,
+  'force-ipv4': True,
 }
 
 FFMPEG_OPTS = {
