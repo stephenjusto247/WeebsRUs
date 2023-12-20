@@ -38,10 +38,11 @@ class YTDLSource():
       if isinstance(e, AttributeError) is False:
         log.error(e)
 
-    title, webpage_url, filepath = await loop.run_in_executor(None, to_run)
+    info = await loop.run_in_executor(None, to_run)
+    if info is None:
+      return None
 
-    if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
-      await interaction.channel.send(embed=create_embed('**Queued up** \"{}\"'.format(title)))
+    title, webpage_url, filepath = info
     
     source = await discord.FFmpegOpusAudio.from_probe(filepath, **FFMPEG_OPTS, method='fallback')
     return cls(source, title=title, webpage_url=webpage_url, filepath=filepath, requester=id, interaction=interaction)
@@ -111,8 +112,6 @@ class MusicPlayer:
     return self.current
 
   async def player_loop(self):
-    if self.bot.is_closed():
-      print("bot is closed!")
     while not self.bot.is_closed():
       self.next.clear()
 

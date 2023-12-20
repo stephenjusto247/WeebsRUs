@@ -81,17 +81,19 @@ class Music(commands.Cog):
       return await interaction.response.send_message(embed=create_embed('<@{}> You must be in the same voice channel as me'.format(interaction.user.id)))
 
     try:
-      await interaction.response.defer(ephemeral=True, thinking=True)
+      await interaction.response.defer(thinking=True)
     except Exception as e:
       self.log.error(e)
-
       return
     
     music_player = self.get_music_player(interaction=interaction)
-    ytdlSource = await YTDLSource.create(interaction, search, loop=self.bot.loop)
-    await music_player.queue.put(ytdlSource)
+    ytdl_source = await YTDLSource.create(interaction, search, loop=self.bot.loop)
 
-    return await interaction.followup.send('Queued up {}'.format(search), ephemeral=True, silent=True)
+    if ytdl_source is None:
+      return await interaction.followup.send(embed=create_embed("Failed to find music from the given search: {}".format(search)))
+    await music_player.queue.put(ytdl_source)
+
+    return await interaction.followup.send(embed=create_embed('**Queued up** \"{}\"'.format(ytdl_source.title)))
 
   @app_commands.command(name="replay", description="Toggles the replay of the entire queue")
   async def replay(self, interaction: discord.Interaction):
