@@ -14,7 +14,7 @@ docker run --rm discord-bot
 ## Executing the bot in your local machine
 
 **Prerequisites**
-- Python 3.10.2 (other versions may or may not work)
+- Python 3.10.13 (other versions may or may not work)
 - ffmpeg
 
 Create a `.env` file in the project directory with the following content:
